@@ -166,9 +166,116 @@ nanobot agent -m "Hello from my local LLM!"
 > [!TIP]
 > The `apiKey` can be any non-empty string for local servers that don't require authentication.
 
+## 🏃 Running the Agent
+
+nanobot has two main run modes plus Docker. Choose based on your use case.
+
+### Mode 1: Gateway (fully autonomous — recommended)
+
+```bash
+nanobot gateway
+```
+
+This is the **primary mode** for running nanobot as a fully autonomous agent. The gateway starts everything as a single long-running process:
+
+| Component | What it does |
+|-----------|--------------|
+| **Agent loop** | Listens on the message bus, processes inbound messages, calls the LLM, executes tools, and publishes responses |
+| **Channel manager** | Starts all enabled channels (Telegram, Discord, WhatsApp, etc.) and routes messages to/from the agent via the message bus |
+| **Heartbeat service** | Wakes the agent every **30 minutes** to read `workspace/HEARTBEAT.md` and execute any tasks listed there |
+| **Cron service** | Runs scheduled jobs (reminders, recurring tasks) and delivers results to users |
+| **Outbound dispatcher** | Routes the agent's outbound messages to the correct channel for delivery |
+
+All components run concurrently via `asyncio.gather`. The startup sequence is:
+
+1. Load config from `~/.nanobot/config.json`
+2. Create the message bus, LLM provider, session manager, cron service
+3. Create the `AgentLoop` with all tools registered (file, shell, web, message, spawn, cron, a2a)
+4. Wire cron and heartbeat callbacks to `agent.process_direct()`
+5. Start cron service, heartbeat service, agent loop, and all enabled channels in parallel
+
+**Options:**
+
+```bash
+nanobot gateway --port 18790    # Change gateway port (default: 18790)
+nanobot gateway --verbose       # Enable debug logging
+```
+
+#### How the heartbeat works
+
+The heartbeat service runs a timer that fires every 30 minutes. On each tick it:
+
+1. Reads `HEARTBEAT.md` from the workspace
+2. If the file is empty (only headers/comments), **skips** — no LLM call is made
+3. If actionable tasks are found, sends the heartbeat prompt to the agent via `process_direct()`
+4. The agent reads the file, executes any tasks, and responds
+5. If the response contains `HEARTBEAT_OK`, nothing further happens; otherwise the result is logged
+
+This means the agent can autonomously work on recurring tasks (checking weather, scanning email, monitoring repos) by editing its own `HEARTBEAT.md` file. Add tasks like:
+
+```markdown
+## Active Tasks
+- [ ] Check HKUDS/nanobot GitHub stars and report to me on Telegram
+- [ ] Scan inbox for urgent emails and summarize
+```
+
+#### How cron jobs work
+
+Cron jobs are persisted to `~/.nanobot/data/cron/jobs.json`. When a job fires:
+
+1. The cron service calls `agent.process_direct()` with the job's message
+2. The agent processes it like any other message (with full tool access)
+3. If `deliver: true`, the result is sent to the specified channel/chat
+
+Jobs can be created by the agent itself (via the `cron` tool), by the CLI (`nanobot cron add`), or programmatically.
+
+### Mode 2: CLI (direct interaction)
+
+For quick one-off queries or interactive conversation:
+
+```bash
+# Single message
+nanobot agent -m "Summarize the README in this project"
+
+# Interactive REPL
+nanobot agent
+
+# With options
+nanobot agent --session my-project    # Named session (persists history)
+nanobot agent --no-markdown           # Plain text output
+nanobot agent --logs                  # Show runtime logs
+```
+
+In CLI mode, only the agent loop runs — no channels, no heartbeat, no cron. This is useful for quick tasks, testing, and development. Sessions are persisted, so you can resume a conversation:
+
+```bash
+nanobot agent -s "my-project" -m "What files did we edit last time?"
+```
+
+### Mode 3: Docker
+
+```bash
+# Build the image
+docker build -t nanobot .
+
+# Initialize config (first time)
+docker run -v ~/.nanobot:/root/.nanobot --rm nanobot onboard
+
+# Edit config on host
+vim ~/.nanobot/config.json
+
+# Run gateway (autonomous mode with channels + heartbeat + cron)
+docker run -v ~/.nanobot:/root/.nanobot -p 18790:18790 nanobot gateway
+
+# Or single command
+docker run -v ~/.nanobot:/root/.nanobot --rm nanobot agent -m "Hello!"
+```
+
+The `-v ~/.nanobot:/root/.nanobot` flag persists config, workspace, sessions, and cron jobs across container restarts.
+
 ## 💬 Chat Apps
 
-Talk to your nanobot through Telegram, Discord, WhatsApp, Feishu, Mochat, DingTalk, Slack, Email, or QQ — anytime, anywhere.
+Talk to your nanobot through Telegram, Discord, WhatsApp, Feishu, Mochat, DingTalk, Slack, Email, or QQ — anytime, anywhere. All channels are started automatically by `nanobot gateway` when enabled in config.
 
 | Channel | Setup |
 |---------|-------|
@@ -575,83 +682,93 @@ nanobot gateway
 
 ## ⚙️ Configuration
 
-Config file: `~/.nanobot/config.json`
+All configuration lives in `~/.nanobot/config.json`. Run `nanobot onboard` to generate the default file.
 
-### Providers
+### Full config reference
 
-> [!TIP]
-> - **Groq** provides free voice transcription via Whisper. If configured, Telegram voice messages will be automatically transcribed.
-> - **Zhipu Coding Plan**: If you're on Zhipu's coding plan, set `"apiBase": "https://open.bigmodel.cn/api/coding/paas/v4"` in your zhipu provider config.
-> - **MiniMax (Mainland China)**: If your API key is from MiniMax's mainland China platform (minimaxi.com), set `"apiBase": "https://api.minimaxi.com/v1"` in your minimax provider config.
-
-| Provider | Purpose | Get API Key |
-|----------|---------|-------------|
-| `openrouter` | LLM (recommended, access to all models) | [openrouter.ai](https://openrouter.ai) |
-| `anthropic` | LLM (Claude direct) | [console.anthropic.com](https://console.anthropic.com) |
-| `openai` | LLM (GPT direct) | [platform.openai.com](https://platform.openai.com) |
-| `deepseek` | LLM (DeepSeek direct) | [platform.deepseek.com](https://platform.deepseek.com) |
-| `groq` | LLM + **Voice transcription** (Whisper) | [console.groq.com](https://console.groq.com) |
-| `gemini` | LLM (Gemini direct) | [aistudio.google.com](https://aistudio.google.com) |
-| `minimax` | LLM (MiniMax direct) | [platform.minimax.io](https://platform.minimax.io) |
-| `aihubmix` | LLM (API gateway, access to all models) | [aihubmix.com](https://aihubmix.com) |
-| `dashscope` | LLM (Qwen) | [dashscope.console.aliyun.com](https://dashscope.console.aliyun.com) |
-| `moonshot` | LLM (Moonshot/Kimi) | [platform.moonshot.cn](https://platform.moonshot.cn) |
-| `zhipu` | LLM (Zhipu GLM) | [open.bigmodel.cn](https://open.bigmodel.cn) |
-| `vllm` | LLM (local, any OpenAI-compatible server) | — |
-
-<details>
-<summary><b>Adding a New Provider (Developer Guide)</b></summary>
-
-nanobot uses a **Provider Registry** (`nanobot/providers/registry.py`) as the single source of truth.
-Adding a new provider only takes **2 steps** — no if-elif chains to touch.
-
-**Step 1.** Add a `ProviderSpec` entry to `PROVIDERS` in `nanobot/providers/registry.py`:
-
-```python
-ProviderSpec(
-    name="myprovider",                   # config field name
-    keywords=("myprovider", "mymodel"),  # model-name keywords for auto-matching
-    env_key="MYPROVIDER_API_KEY",        # env var for LiteLLM
-    display_name="My Provider",          # shown in `nanobot status`
-    litellm_prefix="myprovider",         # auto-prefix: model → myprovider/model
-    skip_prefixes=("myprovider/",),      # don't double-prefix
-)
+```json
+{
+  "agents": {
+    "defaults": {
+      "workspace": "~/.nanobot/workspace",
+      "model": "anthropic/claude-opus-4-5",
+      "maxTokens": 8192,
+      "temperature": 0.7,
+      "maxToolIterations": 20
+    }
+  },
+  "providers": {
+    "openrouter": { "apiKey": "" },
+    "anthropic":  { "apiKey": "" },
+    "openai":     { "apiKey": "" },
+    "deepseek":   { "apiKey": "" },
+    "groq":       { "apiKey": "" },
+    "gemini":     { "apiKey": "" },
+    "moonshot":   { "apiKey": "" },
+    "minimax":    { "apiKey": "" },
+    "aihubmix":   { "apiKey": "" },
+    "dashscope":  { "apiKey": "" },
+    "zhipu":      { "apiKey": "" },
+    "vllm":       { "apiKey": "dummy", "apiBase": "http://localhost:8000/v1" }
+  },
+  "channels": {
+    "telegram":  { "enabled": false, "token": "", "allowFrom": [] },
+    "discord":   { "enabled": false, "token": "", "allowFrom": [] },
+    "whatsapp":  { "enabled": false, "allowFrom": [] },
+    "feishu":    { "enabled": false, "appId": "", "appSecret": "" },
+    "dingtalk":  { "enabled": false, "clientId": "", "clientSecret": "" },
+    "slack":     { "enabled": false, "botToken": "", "appToken": "" },
+    "email":     { "enabled": false, "consentGranted": false },
+    "mochat":    { "enabled": false, "clawToken": "" },
+    "qq":        { "enabled": false, "appId": "", "secret": "" }
+  },
+  "tools": {
+    "web": {
+      "search": { "apiKey": "", "maxResults": 5 }
+    },
+    "exec": {
+      "timeout": 60
+    },
+    "a2a": {
+      "timeout": 60,
+      "defaultAgents": []
+    },
+    "restrictToWorkspace": false
+  },
+  "gateway": {
+    "host": "0.0.0.0",
+    "port": 18790
+  }
+}
 ```
 
-**Step 2.** Add a field to `ProvidersConfig` in `nanobot/config/schema.py`:
+### Agent defaults
 
-```python
-class ProvidersConfig(BaseModel):
-    ...
-    myprovider: ProviderConfig = ProviderConfig()
-```
+| Key | Default | Description |
+|-----|---------|-------------|
+| `workspace` | `~/.nanobot/workspace` | Path to agent workspace (bootstrap files, memory, skills) |
+| `model` | `anthropic/claude-opus-4-5` | Default LLM model |
+| `maxTokens` | `8192` | Max output tokens per LLM call |
+| `temperature` | `0.7` | LLM sampling temperature |
+| `maxToolIterations` | `20` | Max tool-call loops per message |
 
-That's it! Environment variables, model prefixing, config matching, and `nanobot status` display will all work automatically.
+### Tools
 
-**Common `ProviderSpec` options:**
-
-| Field | Description | Example |
-|-------|-------------|---------|
-| `litellm_prefix` | Auto-prefix model names for LiteLLM | `"dashscope"` → `dashscope/qwen-max` |
-| `skip_prefixes` | Don't prefix if model already starts with these | `("dashscope/", "openrouter/")` |
-| `env_extras` | Additional env vars to set | `(("ZHIPUAI_API_KEY", "{api_key}"),)` |
-| `model_overrides` | Per-model parameter overrides | `(("kimi-k2.5", {"temperature": 1.0}),)` |
-| `is_gateway` | Can route any model (like OpenRouter) | `True` |
-| `detect_by_key_prefix` | Detect gateway by API key prefix | `"sk-or-"` |
-| `detect_by_base_keyword` | Detect gateway by API base URL | `"openrouter"` |
-| `strip_model_prefix` | Strip existing prefix before re-prefixing | `True` (for AiHubMix) |
-
-</details>
-
+| Key | Default | Description |
+|-----|---------|-------------|
+| `tools.web.search.apiKey` | `""` | Brave Search API key (enables `web_search` tool) |
+| `tools.web.search.maxResults` | `5` | Max search results returned |
+| `tools.exec.timeout` | `60` | Shell command timeout in seconds |
+| `tools.a2a.timeout` | `60` | A2A request timeout in seconds |
+| `tools.a2a.defaultAgents` | `[]` | Known remote agent URLs (surfaced in tool description) |
+| `tools.restrictToWorkspace` | `false` | Sandbox all file/shell operations to workspace |
 
 ### Security
 
-> For production deployments, set `"restrictToWorkspace": true` in your config to sandbox the agent.
-
 | Option | Default | Description |
 |--------|---------|-------------|
-| `tools.restrictToWorkspace` | `false` | When `true`, restricts **all** agent tools (shell, file read/write/edit, list) to the workspace directory. Prevents path traversal and out-of-scope access. |
-| `channels.*.allowFrom` | `[]` (allow all) | Whitelist of user IDs. Empty = allow everyone; non-empty = only listed users can interact. |
+| `tools.restrictToWorkspace` | `false` | Restricts all agent tools (shell, file I/O) to the workspace directory |
+| `channels.*.allowFrom` | `[]` | User ID whitelist per channel. Empty = allow everyone |
 
 
 ## CLI Reference
@@ -659,14 +776,21 @@ That's it! Environment variables, model prefixing, config matching, and `nanobot
 | Command | Description |
 |---------|-------------|
 | `nanobot onboard` | Initialize config & workspace |
-| `nanobot agent -m "..."` | Chat with the agent |
-| `nanobot agent` | Interactive chat mode |
+| `nanobot gateway` | Start the fully autonomous gateway (channels + heartbeat + cron) |
+| `nanobot gateway --verbose` | Gateway with debug logging |
+| `nanobot agent -m "..."` | Send a single message to the agent |
+| `nanobot agent` | Interactive chat REPL |
+| `nanobot agent -s "name"` | Chat with a named session (persists history) |
 | `nanobot agent --no-markdown` | Show plain-text replies |
 | `nanobot agent --logs` | Show runtime logs during chat |
-| `nanobot gateway` | Start the gateway |
-| `nanobot status` | Show status |
-| `nanobot channels login` | Link WhatsApp (scan QR) |
-| `nanobot channels status` | Show channel status |
+| `nanobot status` | Show config, workspace, and provider status |
+| `nanobot channels status` | Show enabled channels and their config |
+| `nanobot channels login` | Link WhatsApp via QR code |
+| `nanobot cron list` | List all scheduled jobs |
+| `nanobot cron add` | Add a scheduled job |
+| `nanobot cron remove <id>` | Remove a job by ID |
+| `nanobot cron enable <id>` | Enable/disable a job |
+| `nanobot cron run <id>` | Manually trigger a job |
 
 Interactive mode exits: `exit`, `quit`, `/exit`, `/quit`, `:q`, or `Ctrl+D`.
 
@@ -687,31 +811,6 @@ nanobot cron remove <job_id>
 
 </details>
 
-## 🐳 Docker
-
-> [!TIP]
-> The `-v ~/.nanobot:/root/.nanobot` flag mounts your local config directory into the container, so your config and workspace persist across container restarts.
-
-Build and run nanobot in a container:
-
-```bash
-# Build the image
-docker build -t nanobot .
-
-# Initialize config (first time only)
-docker run -v ~/.nanobot:/root/.nanobot --rm nanobot onboard
-
-# Edit config on host to add API keys
-vim ~/.nanobot/config.json
-
-# Run gateway (connects to enabled channels, e.g. Telegram/Discord/Mochat)
-docker run -v ~/.nanobot:/root/.nanobot -p 18790:18790 nanobot gateway
-
-# Or run a single command
-docker run -v ~/.nanobot:/root/.nanobot --rm nanobot agent -m "Hello!"
-docker run -v ~/.nanobot:/root/.nanobot --rm nanobot status
-```
-
 ## 📁 Project Structure
 
 ```
@@ -722,12 +821,12 @@ nanobot/
 │   ├── memory.py   #    Persistent memory
 │   ├── skills.py   #    Skills loader
 │   ├── subagent.py #    Background task execution
-│   └── tools/      #    Built-in tools (incl. spawn)
-├── skills/         # 🎯 Bundled skills (github, weather, tmux...)
+│   └── tools/      #    Built-in tools (file, shell, web, a2a, spawn...)
+├── skills/         # 🎯 Bundled skills (github, weather, a2a, tmux...)
 ├── channels/       # 📱 Chat channel integrations
 ├── bus/            # 🚌 Message routing
 ├── cron/           # ⏰ Scheduled tasks
-├── heartbeat/      # 💓 Proactive wake-up
+├── heartbeat/      # 💓 Proactive wake-up (every 30m)
 ├── providers/      # 🤖 LLM providers (OpenRouter, etc.)
 ├── session/        # 💬 Conversation sessions
 ├── config/         # ⚙️ Configuration
