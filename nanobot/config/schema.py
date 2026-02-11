@@ -213,10 +213,17 @@ class ExecToolConfig(BaseModel):
     timeout: int = 60
 
 
+class A2AConfig(BaseModel):
+    """A2A (Agent-to-Agent) client configuration."""
+    timeout: int = 60  # Request timeout in seconds
+    default_agents: list[str] = Field(default_factory=list)  # Known agent URLs
+
+
 class ToolsConfig(BaseModel):
     """Tools configuration."""
     web: WebToolsConfig = Field(default_factory=WebToolsConfig)
     exec: ExecToolConfig = Field(default_factory=ExecToolConfig)
+    a2a: A2AConfig = Field(default_factory=A2AConfig)
     restrict_to_workspace: bool = False  # If true, restrict all tool access to workspace directory
 
 

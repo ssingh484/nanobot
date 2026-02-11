@@ -11,7 +11,7 @@ from nanobot.agent.tools.base import Tool
 
 # Limit redirects to prevent abuse
 MAX_REDIRECTS = 5
-REQUEST_TIMEOUT = 60.0
+DEFAULT_TIMEOUT = 60.0
 USER_AGENT = "nanobot-a2a-client/0.1"
 
 
@@ -51,6 +51,10 @@ class A2ATool(Tool):
     Supports discovering agents, sending tasks, checking status, and cancelling.
     """
 
+    def __init__(self, timeout: int | None = None, default_agents: list[str] | None = None):
+        self._timeout = float(timeout) if timeout else DEFAULT_TIMEOUT
+        self._default_agents = default_agents or []
+
     name = "a2a"
     description = (
         "Communicate with remote AI agents using the A2A (Agent-to-Agent) protocol. "
@@ -84,6 +88,20 @@ class A2ATool(Tool):
         },
         "required": ["action", "url"],
     }
+
+    @property
+    def _agents_hint(self) -> str:
+        """Build a hint string listing configured default agents."""
+        if not self._default_agents:
+            return ""
+        return " Known agents: " + ", ".join(self._default_agents) + "."
+
+    def to_schema(self) -> dict[str, Any]:
+        """Override to append known agents to description."""
+        schema = super().to_schema()
+        if self._agents_hint:
+            schema["function"]["description"] += self._agents_hint
+        return schema
 
     async def execute(
         self,
@@ -122,7 +140,7 @@ class A2ATool(Tool):
             async with httpx.AsyncClient(
                 follow_redirects=True,
                 max_redirects=MAX_REDIRECTS,
-                timeout=REQUEST_TIMEOUT,
+                timeout=self._timeout,
             ) as client:
                 r = await client.get(
                     card_url,
@@ -173,7 +191,7 @@ class A2ATool(Tool):
             async with httpx.AsyncClient(
                 follow_redirects=True,
                 max_redirects=MAX_REDIRECTS,
-                timeout=REQUEST_TIMEOUT,
+                timeout=self._timeout,
             ) as client:
                 r = await client.post(
                     rpc_url,

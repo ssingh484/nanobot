@@ -61,6 +61,27 @@ a2a(action="cancel", url="https://agent.example.com", task_id="abc-123")
 3. If the task is long-running, **get** its status periodically.
 4. If the result has `status: input-required`, send a follow-up using the same `session_id`.
 
+## Configuration
+
+In `~/.nanobot/config.json` under `tools.a2a`:
+
+```json
+{
+  "tools": {
+    "a2a": {
+      "timeout": 60,
+      "defaultAgents": [
+        "https://agent1.example.com",
+        "https://agent2.example.com"
+      ]
+    }
+  }
+}
+```
+
+- **timeout**: Request timeout in seconds (default: 60).
+- **defaultAgents**: Known agent URLs surfaced in tool descriptions so the agent can use them without being told.
+
 ## Tips
 
 - Always `discover` first to verify the agent is reachable and understand its skills.

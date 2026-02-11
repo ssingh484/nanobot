@@ -364,6 +364,7 @@ def gateway(
         cron_service=cron,
         restrict_to_workspace=config.tools.restrict_to_workspace,
         session_manager=session_manager,
+        a2a_config=config.tools.a2a,
     )
     
     # Set cron callback (needs agent)
@@ -466,6 +467,7 @@ def agent(
         brave_api_key=config.tools.web.search.api_key or None,
         exec_config=config.tools.exec,
         restrict_to_workspace=config.tools.restrict_to_workspace,
+        a2a_config=config.tools.a2a,
     )
     
     # Show spinner when logs are off (no output to miss); skip when logs are on

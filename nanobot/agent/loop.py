@@ -47,8 +47,9 @@ class AgentLoop:
         cron_service: "CronService | None" = None,
         restrict_to_workspace: bool = False,
         session_manager: SessionManager | None = None,
+        a2a_config: "A2AConfig | None" = None,
     ):
-        from nanobot.config.schema import ExecToolConfig
+        from nanobot.config.schema import ExecToolConfig, A2AConfig
         from nanobot.cron.service import CronService
         self.bus = bus
         self.provider = provider
@@ -57,6 +58,7 @@ class AgentLoop:
         self.max_iterations = max_iterations
         self.brave_api_key = brave_api_key
         self.exec_config = exec_config or ExecToolConfig()
+        self.a2a_config = a2a_config or A2AConfig()
         self.cron_service = cron_service
         self.restrict_to_workspace = restrict_to_workspace
         
@@ -109,7 +111,10 @@ class AgentLoop:
             self.tools.register(CronTool(self.cron_service))
         
         # A2A tool (for agent-to-agent communication)
-        self.tools.register(A2ATool())
+        self.tools.register(A2ATool(
+            timeout=self.a2a_config.timeout,
+            default_agents=self.a2a_config.default_agents,
+        ))
     
     async def run(self) -> None:
         """Run the agent loop, processing messages from the bus."""
