@@ -262,6 +262,26 @@ PROVIDERS: tuple[ProviderSpec, ...] = (
 
     # === Local deployment (matched by config key, NOT by api_base) =========
 
+    # LiteLLM Proxy: local gateway, routes any model via a LiteLLM proxy server.
+    # Detected when config key is "litellm" (provider_name="litellm").
+    # Typically runs on a local IP without TLS.
+    ProviderSpec(
+        name="litellm",
+        keywords=("litellm",),
+        env_key="LITELLM_API_KEY",
+        display_name="LiteLLM Proxy",
+        litellm_prefix="openai",            # route via OpenAI-compatible endpoint
+        skip_prefixes=(),
+        env_extras=(),
+        is_gateway=True,
+        is_local=False,
+        detect_by_key_prefix="",
+        detect_by_base_keyword="",
+        default_api_base="",                # user must provide in config
+        strip_model_prefix=False,
+        model_overrides=(),
+    ),
+
     # vLLM / any OpenAI-compatible local server.
     # Detected when config key is "vllm" (provider_name="vllm").
     ProviderSpec(
