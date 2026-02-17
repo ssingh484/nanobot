@@ -4,45 +4,48 @@ Information about the user to help personalize interactions.
 
 ## Basic Information
 
-- **Name**: (your name)
-- **Timezone**: (your timezone, e.g., UTC+8)
-- **Language**: (preferred language)
+- **Name**: Sid
+- **Timezone**: EST
+- **Language**: English
 
 ## Preferences
 
 ### Communication Style
 
-- [ ] Casual
+- [x] Casual
 - [ ] Professional
-- [ ] Technical
+- [x] Technical
 
 ### Response Length
 
 - [ ] Brief and concise
 - [ ] Detailed explanations
-- [ ] Adaptive based on question
+- [x] Adaptive based on question
 
 ### Technical Level
 
 - [ ] Beginner
-- [ ] Intermediate
+- [x] Intermediate
 - [ ] Expert
 
 ## Work Context
 
-- **Primary Role**: (your role, e.g., developer, researcher)
-- **Main Projects**: (what you're working on)
-- **Tools You Use**: (IDEs, languages, frameworks)
+- **Primary Role**: Application Security Engineer
+- **Main Projects**: OSCP Exam preperation, Japan travel planning, General upskilling
+- **Tools You Use**: VSCode, Docker, Proxmox
 
 ## Topics of Interest
 
-- 
-- 
-- 
+- Cybersecurity
+- Homelabbing
+- Tourism
+- Programming
+- Anime
+- Gymming
 
 ## Special Instructions
 
-(Any specific instructions for how the assistant should behave)
+Pre-empt my needs but always communicate clearly and ask for feedback, clarification and permission before executing tasks
 
 ---
 

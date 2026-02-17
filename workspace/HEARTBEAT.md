@@ -7,7 +7,9 @@ If this file has no tasks (only headers and comments), the agent will skip the h
 
 ## Active Tasks
 
-<!-- Add your periodic tasks below this line -->
+[ ] Improve yourself using the SWE agent to build any additional skills based on learnings so far
+
+[ ] Think about and suggest new ideas based on user interactions so far via any channel to the user
 
 
 ## Completed
