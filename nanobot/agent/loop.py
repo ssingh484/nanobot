@@ -19,6 +19,8 @@ from nanobot.agent.tools.message import MessageTool
 from nanobot.agent.tools.spawn import SpawnTool
 from nanobot.agent.tools.cron import CronTool
 from nanobot.agent.tools.a2a import A2ATool
+from nanobot.agent.tools.clear_history import ClearHistoryTool
+from nanobot.agent.compaction import maybe_compact
 from nanobot.agent.subagent import SubagentManager
 from nanobot.session.manager import SessionManager
 
@@ -48,6 +50,7 @@ class AgentLoop:
         restrict_to_workspace: bool = False,
         session_manager: SessionManager | None = None,
         a2a_config: "A2AConfig | None" = None,
+        context_window: int = 128000,
     ):
         from nanobot.config.schema import ExecToolConfig, A2AConfig
         from nanobot.cron.service import CronService
@@ -61,6 +64,7 @@ class AgentLoop:
         self.a2a_config = a2a_config or A2AConfig()
         self.cron_service = cron_service
         self.restrict_to_workspace = restrict_to_workspace
+        self.context_window = context_window
         
         self.context = ContextBuilder(workspace)
         self.sessions = session_manager or SessionManager(workspace)
@@ -76,6 +80,7 @@ class AgentLoop:
         )
         
         self._running = False
+        self._clear_history_tool = ClearHistoryTool()
         self._register_default_tools()
     
     def _register_default_tools(self) -> None:
@@ -115,6 +120,9 @@ class AgentLoop:
             timeout=self.a2a_config.timeout,
             default_agents=self.a2a_config.default_agents,
         ))
+        
+        # Clear history tool
+        self.tools.register(self._clear_history_tool)
     
     async def run(self) -> None:
         """Run the agent loop, processing messages from the bus."""
@@ -184,6 +192,9 @@ class AgentLoop:
         if isinstance(cron_tool, CronTool):
             cron_tool.set_context(msg.channel, msg.chat_id)
         
+        # Bind clear_history tool to active session
+        self._clear_history_tool.set_session(session)
+        
         # Build initial messages (use get_history for LLM-formatted messages)
         messages = self.context.build_messages(
             history=session.get_history(),
@@ -192,6 +203,17 @@ class AgentLoop:
             channel=msg.channel,
             chat_id=msg.chat_id,
         )
+        
+        # Compact history if approaching context window limit
+        messages, compacted = await maybe_compact(
+            messages, self.provider, self.model, self.context_window,
+        )
+        if compacted:
+            session.clear()
+            # Persist the summary as seed history for next load
+            session.add_message("user", messages[-2]["content"])
+            session.add_message("assistant", messages[-1]["content"])
+            self.sessions.save(session)
         
         # Agent loop
         iteration = 0
@@ -294,6 +316,9 @@ class AgentLoop:
         if isinstance(cron_tool, CronTool):
             cron_tool.set_context(origin_channel, origin_chat_id)
         
+        # Bind clear_history tool to active session
+        self._clear_history_tool.set_session(session)
+        
         # Build messages with the announce content
         messages = self.context.build_messages(
             history=session.get_history(),
@@ -301,6 +326,16 @@ class AgentLoop:
             channel=origin_channel,
             chat_id=origin_chat_id,
         )
+        
+        # Compact history if approaching context window limit
+        messages, compacted = await maybe_compact(
+            messages, self.provider, self.model, self.context_window,
+        )
+        if compacted:
+            session.clear()
+            session.add_message("user", messages[-2]["content"])
+            session.add_message("assistant", messages[-1]["content"])
+            self.sessions.save(session)
         
         # Agent loop (limited for announce handling)
         iteration = 0

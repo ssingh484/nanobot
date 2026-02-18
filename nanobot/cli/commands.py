@@ -365,6 +365,7 @@ def gateway(
         restrict_to_workspace=config.tools.restrict_to_workspace,
         session_manager=session_manager,
         a2a_config=config.tools.a2a,
+        context_window=config.agents.defaults.context_window,
     )
     
     # Set cron callback (needs agent)
@@ -468,6 +469,7 @@ def agent(
         exec_config=config.tools.exec,
         restrict_to_workspace=config.tools.restrict_to_workspace,
         a2a_config=config.tools.a2a,
+        context_window=config.agents.defaults.context_window,
     )
     
     # Show spinner when logs are off (no output to miss); skip when logs are on
