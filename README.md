@@ -16,10 +16,16 @@
 
 ⚡️ Delivers core agent functionality in just **~4,000** lines of code — **99% smaller** than Clawdbot's 430k+ lines.
 
-📏 Real-time line count: **3,510 lines** (run `bash core_agent_lines.sh` to verify anytime)
+📏 Real-time line count: **3,696 lines** (run `bash core_agent_lines.sh` to verify anytime)
 
 ## 📢 News
 
+- **2026-02-16** 🦞 nanobot now integrates a [ClawHub](https://clawhub.ai) skill — search and install public agent skills.
+- **2026-02-15** 🔑 nanobot now supports OpenAI Codex provider with OAuth login support.
+- **2026-02-14** 🔌 nanobot now supports MCP! See [MCP section](#mcp-model-context-protocol) for details.
+- **2026-02-13** 🎉 Released v0.1.3.post7 — includes security hardening and multiple improvements. All users are recommended to upgrade to the latest version. See [release notes](https://github.com/HKUDS/nanobot/releases/tag/v0.1.3.post7) for more details.
+- **2026-02-12** 🧠 Redesigned memory system — Less code, more reliable. Join the [discussion](https://github.com/HKUDS/nanobot/discussions/566) about it!
+- **2026-02-11** ✨ Enhanced CLI experience and added MiniMax support!
 - **2026-02-10** 🎉 Released v0.1.3.post6 with improvements! Check the updates [notes](https://github.com/HKUDS/nanobot/releases/tag/v0.1.3.post6) and our [roadmap](https://github.com/HKUDS/nanobot/discussions/431).
 - **2026-02-09** 💬 Added Slack, Email, and QQ support — nanobot now supports multiple chat platforms!
 - **2026-02-08** 🔧 Refactored Providers—adding a new LLM provider now takes just 2 simple steps! Check [here](#providers).
@@ -105,14 +111,22 @@ nanobot onboard
 
 **2. Configure** (`~/.nanobot/config.json`)
 
-For OpenRouter - recommended for global users:
+Add or merge these **two parts** into your config (other options have defaults).
+
+*Set your API key* (e.g. OpenRouter, recommended for global users):
 ```json
 {
   "providers": {
     "openrouter": {
       "apiKey": "sk-or-v1-xxx"
     }
-  },
+  }
+}
+```
+
+*Set your model*:
+```json
+{
   "agents": {
     "defaults": {
       "model": "anthropic/claude-opus-4-5"
@@ -124,7 +138,7 @@ For OpenRouter - recommended for global users:
 **3. Chat**
 
 ```bash
-nanobot agent -m "What is 2+2?"
+nanobot agent
 ```
 
 That's it! You have a working AI assistant in 2 minutes.
@@ -277,17 +291,17 @@ The `-v ~/.nanobot:/root/.nanobot` flag persists config, workspace, sessions, an
 
 Talk to your nanobot through Telegram, Discord, WhatsApp, Feishu, Mochat, DingTalk, Slack, Email, or QQ — anytime, anywhere. All channels are started automatically by `nanobot gateway` when enabled in config.
 
-| Channel | Setup |
-|---------|-------|
-| **Telegram** | Easy (just a token) |
-| **Discord** | Easy (bot token + intents) |
-| **WhatsApp** | Medium (scan QR) |
-| **Feishu** | Medium (app credentials) |
-| **Mochat** | Medium (claw token + websocket) |
-| **DingTalk** | Medium (app credentials) |
-| **Slack** | Medium (bot + app tokens) |
-| **Email** | Medium (IMAP/SMTP credentials) |
-| **QQ** | Easy (app credentials) |
+| Channel | What you need |
+|---------|---------------|
+| **Telegram** | Bot token from @BotFather |
+| **Discord** | Bot token + Message Content intent |
+| **WhatsApp** | QR code scan |
+| **Feishu** | App ID + App Secret |
+| **Mochat** | Claw token (auto-setup available) |
+| **DingTalk** | App Key + App Secret |
+| **Slack** | Bot token + App-Level token |
+| **Email** | IMAP/SMTP credentials |
+| **QQ** | App ID + App Secret |
 
 <details>
 <summary><b>Telegram</b> (Recommended)</summary>
@@ -680,6 +694,17 @@ nanobot gateway
 
 </details>
 
+## 🌐 Agent Social Network
+
+🐈 nanobot is capable of linking to the agent social network (agent community). **Just send one message and your nanobot joins automatically!**
+
+| Platform | How to Join (send this message to your bot) |
+|----------|-------------|
+| [**Moltbook**](https://www.moltbook.com/) | `Read https://moltbook.com/skill.md and follow the instructions to join Moltbook` |
+| [**ClawdChat**](https://clawdchat.ai/) | `Read https://clawdchat.ai/skill.md and follow the instructions to join ClawdChat` |
+
+Simply send the command above to your nanobot (via CLI or any chat channel), and it will handle the rest.
+
 ## ⚙️ Configuration
 
 All configuration lives in `~/.nanobot/config.json`. Run `nanobot onboard` to generate the default file.
@@ -839,7 +864,6 @@ PRs welcome! The codebase is intentionally small and readable. 🤗
 
 **Roadmap** — Pick an item and [open a PR](https://github.com/HKUDS/nanobot/pulls)!
 
-- [x] **Voice Transcription** — Support for Groq Whisper (Issue #13)
 - [ ] **Multi-modal** — See and hear (images, voice, video)
 - [ ] **Long-term memory** — Never forget important context
 - [ ] **Better reasoning** — Multi-step planning and reflection
