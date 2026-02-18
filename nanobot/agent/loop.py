@@ -307,6 +307,8 @@ class AgentLoop:
             asyncio.create_task(self._consolidate_memory(session))
 
         self._set_tool_context(msg.channel, msg.chat_id)
+        self._clear_history_tool.set_session(session)
+
         initial_messages = self.context.build_messages(
             history=session.get_history(max_messages=self.memory_window),
             current_message=msg.content,
@@ -314,6 +316,17 @@ class AgentLoop:
             channel=msg.channel,
             chat_id=msg.chat_id,
         )
+
+        # Token-based compaction: safety net when messages are large
+        initial_messages, compacted = await maybe_compact(
+            initial_messages, self.provider, self.model, self.context_window,
+        )
+        if compacted:
+            session.clear()
+            session.add_message("user", initial_messages[-2]["content"])
+            session.add_message("assistant", initial_messages[-1]["content"])
+            self.sessions.save(session)
+
         final_content, tools_used = await self._run_agent_loop(initial_messages)
 
         if final_content is None:
@@ -356,12 +369,25 @@ class AgentLoop:
         session_key = f"{origin_channel}:{origin_chat_id}"
         session = self.sessions.get_or_create(session_key)
         self._set_tool_context(origin_channel, origin_chat_id)
+        self._clear_history_tool.set_session(session)
+
         initial_messages = self.context.build_messages(
             history=session.get_history(max_messages=self.memory_window),
             current_message=msg.content,
             channel=origin_channel,
             chat_id=origin_chat_id,
         )
+
+        # Token-based compaction: safety net when messages are large
+        initial_messages, compacted = await maybe_compact(
+            initial_messages, self.provider, self.model, self.context_window,
+        )
+        if compacted:
+            session.clear()
+            session.add_message("user", initial_messages[-2]["content"])
+            session.add_message("assistant", initial_messages[-1]["content"])
+            self.sessions.save(session)
+
         final_content, _ = await self._run_agent_loop(initial_messages)
 
         if final_content is None:
