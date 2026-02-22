@@ -1,7 +1,7 @@
 """Async message queue for decoupled channel-agent communication."""
 
 import asyncio
-from typing import Callable, Awaitable
+from typing import Any, Callable, Awaitable
 
 from loguru import logger
 
@@ -20,7 +20,12 @@ class MessageBus:
         self.inbound: asyncio.Queue[InboundMessage] = asyncio.Queue()
         self.outbound: asyncio.Queue[OutboundMessage] = asyncio.Queue()
         self._outbound_subscribers: dict[str, list[Callable[[OutboundMessage], Awaitable[None]]]] = {}
+        self._channels: dict[str, Any] = {}
         self._running = False
+    
+    def register_channels(self, channels: dict[str, Any]) -> None:
+        """Register channel instances for direct sending."""
+        self._channels = channels
     
     async def publish_inbound(self, msg: InboundMessage) -> None:
         """Publish a message from a channel to the agent."""
@@ -33,6 +38,20 @@ class MessageBus:
     async def publish_outbound(self, msg: OutboundMessage) -> None:
         """Publish a response from the agent to channels."""
         await self.outbound.put(msg)
+    
+    async def send_direct(self, msg: OutboundMessage) -> None:
+        """Send a message directly via the channel.
+        
+        Unlike publish_outbound (fire-and-forget queue), this awaits the
+        channel's send() so errors propagate back to the caller.
+        Falls back to the outbound queue when no channel is registered
+        (e.g. CLI mode).
+        """
+        channel = self._channels.get(msg.channel)
+        if channel:
+            await channel.send(msg)  # errors propagate to caller
+        else:
+            await self.outbound.put(msg)
     
     async def consume_outbound(self) -> OutboundMessage:
         """Consume the next outbound message (blocks until available)."""

@@ -76,21 +76,17 @@ class SlackChannel(BaseChannel):
     async def send(self, msg: OutboundMessage) -> None:
         """Send a message through Slack."""
         if not self._web_client:
-            logger.warning("Slack client not running")
-            return
-        try:
-            slack_meta = msg.metadata.get("slack", {}) if msg.metadata else {}
-            thread_ts = slack_meta.get("thread_ts")
-            channel_type = slack_meta.get("channel_type")
-            # Only reply in thread for channel/group messages; DMs don't use threads
-            use_thread = thread_ts and channel_type != "im"
-            await self._web_client.chat_postMessage(
-                channel=msg.chat_id,
-                text=self._to_mrkdwn(msg.content),
-                thread_ts=thread_ts if use_thread else None,
-            )
-        except Exception as e:
-            logger.error(f"Error sending Slack message: {e}")
+            raise RuntimeError("Slack client not running")
+        slack_meta = msg.metadata.get("slack", {}) if msg.metadata else {}
+        thread_ts = slack_meta.get("thread_ts")
+        channel_type = slack_meta.get("channel_type")
+        # Only reply in thread for channel/group messages; DMs don't use threads
+        use_thread = thread_ts and channel_type != "im"
+        await self._web_client.chat_postMessage(
+            channel=msg.chat_id,
+            text=self._to_mrkdwn(msg.content),
+            thread_ts=thread_ts if use_thread else None,
+        )
 
     async def _on_socket_request(
         self,

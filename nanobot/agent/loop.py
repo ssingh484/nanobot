@@ -128,7 +128,7 @@ class AgentLoop:
         self.tools.register(WebResearchPollTool(api_key=self.exa_api_key))
         
         # Message tool
-        message_tool = MessageTool(send_callback=self.bus.publish_outbound)
+        message_tool = MessageTool(send_callback=self.bus.send_direct)
         self.tools.register(message_tool)
         
         # Spawn tool (for subagents)

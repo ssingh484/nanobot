@@ -17,6 +17,27 @@ from nanobot.config.schema import DiscordConfig
 
 DISCORD_API_BASE = "https://discord.com/api/v10"
 MAX_ATTACHMENT_BYTES = 20 * 1024 * 1024  # 20MB
+MAX_MESSAGE_LENGTH = 2000  # Discord character limit
+
+
+def _split_message(content: str, max_len: int = MAX_MESSAGE_LENGTH) -> list[str]:
+    """Split content into chunks within max_len, preferring line breaks."""
+    if len(content) <= max_len:
+        return [content]
+    chunks: list[str] = []
+    while content:
+        if len(content) <= max_len:
+            chunks.append(content)
+            break
+        cut = content[:max_len]
+        pos = cut.rfind('\n')
+        if pos == -1:
+            pos = cut.rfind(' ')
+        if pos == -1:
+            pos = max_len
+        chunks.append(content[:pos])
+        content = content[pos:].lstrip()
+    return chunks
 
 
 class DiscordChannel(BaseChannel):
@@ -73,39 +94,66 @@ class DiscordChannel(BaseChannel):
             self._http = None
 
     async def send(self, msg: OutboundMessage) -> None:
-        """Send a message through Discord REST API."""
+        """Send a message through Discord REST API.
+        
+        Raises on failure so the caller (MessageTool) can report the
+        error back to the agent for retry with a modified message.
+        """
         if not self._http:
-            logger.warning("Discord HTTP client not initialized")
-            return
+            raise RuntimeError("Discord HTTP client not initialized")
 
         url = f"{DISCORD_API_BASE}/channels/{msg.chat_id}/messages"
-        payload: dict[str, Any] = {"content": msg.content}
-
-        if msg.reply_to:
-            payload["message_reference"] = {"message_id": msg.reply_to}
-            payload["allowed_mentions"] = {"replied_user": False}
-
         headers = {"Authorization": f"Bot {self.config.token}"}
 
         try:
-            for attempt in range(3):
-                try:
-                    response = await self._http.post(url, headers=headers, json=payload)
-                    if response.status_code == 429:
-                        data = response.json()
-                        retry_after = float(data.get("retry_after", 1.0))
-                        logger.warning(f"Discord rate limited, retrying in {retry_after}s")
-                        await asyncio.sleep(retry_after)
-                        continue
-                    response.raise_for_status()
-                    return
-                except Exception as e:
-                    if attempt == 2:
-                        logger.error(f"Error sending Discord message: {e}")
-                    else:
-                        await asyncio.sleep(1)
+            chunks = _split_message(msg.content) if msg.content else [""]
+            for i, chunk in enumerate(chunks):
+                payload: dict[str, Any] = {"content": chunk}
+
+                # Only attach reply reference to the first chunk
+                if i == 0 and msg.reply_to:
+                    payload["message_reference"] = {"message_id": msg.reply_to}
+                    payload["allowed_mentions"] = {"replied_user": False}
+
+                await self._send_payload(url, headers, payload)
         finally:
             await self._stop_typing(msg.chat_id)
+
+    async def _send_payload(
+        self, url: str, headers: dict[str, str], payload: dict[str, Any]
+    ) -> None:
+        """Send a single message payload with retry for rate limits only.
+        
+        Raises httpx.HTTPStatusError on non-retryable failures (400, 403, etc.)
+        so the error propagates back to the agent.
+        """
+        last_error: Exception | None = None
+        for attempt in range(3):
+            try:
+                response = await self._http.post(url, headers=headers, json=payload)
+                if response.status_code == 429:
+                    data = response.json()
+                    retry_after = float(data.get("retry_after", 1.0))
+                    logger.warning(f"Discord rate limited, retrying in {retry_after}s")
+                    await asyncio.sleep(retry_after)
+                    continue
+                if response.status_code >= 400:
+                    # Non-retryable client/server errors — raise immediately
+                    body = response.text
+                    raise RuntimeError(
+                        f"Discord API error {response.status_code}: {body}"
+                    )
+                return  # success
+            except RuntimeError:
+                raise  # don't mask our own RuntimeError
+            except Exception as e:
+                last_error = e
+                if attempt < 2:
+                    await asyncio.sleep(1)
+        # All retries exhausted
+        raise RuntimeError(
+            f"Failed to send Discord message after 3 attempts: {last_error}"
+        )
 
     async def _gateway_loop(self) -> None:
         """Main gateway loop: identify, heartbeat, dispatch events."""

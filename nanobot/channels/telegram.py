@@ -249,10 +249,7 @@ class TelegramChannel(BaseChannel):
                     await self._app.bot.send_message(chat_id=chat_id, text=html, parse_mode="HTML")
                 except Exception as e:
                     logger.warning(f"HTML parse failed, falling back to plain text: {e}")
-                    try:
-                        await self._app.bot.send_message(chat_id=chat_id, text=chunk)
-                    except Exception as e2:
-                        logger.error(f"Error sending Telegram message: {e2}")
+                    await self._app.bot.send_message(chat_id=chat_id, text=chunk)
     
     async def _on_start(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Handle /start command."""
