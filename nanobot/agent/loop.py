@@ -16,7 +16,10 @@ from nanobot.agent.context import ContextBuilder
 from nanobot.agent.tools.registry import ToolRegistry
 from nanobot.agent.tools.filesystem import ReadFileTool, WriteFileTool, EditFileTool, ListDirTool
 from nanobot.agent.tools.shell import ExecTool
-from nanobot.agent.tools.web import WebSearchTool, WebFetchTool
+from nanobot.agent.tools.web import (
+    WebSearchTool, WebFetchTool, WebClickTool, WebTypeTool, WebScreenshotTool,
+    WebResearchTool, WebResearchSubmitTool, WebResearchPollTool,
+)
 from nanobot.agent.tools.message import MessageTool
 from nanobot.agent.tools.spawn import SpawnTool
 from nanobot.agent.tools.cron import CronTool
@@ -50,7 +53,7 @@ class AgentLoop:
         temperature: float = 0.7,
         max_tokens: int = 4096,
         memory_window: int = 50,
-        brave_api_key: str | None = None,
+        exa_api_key: str | None = None,
         exec_config: "ExecToolConfig | None" = None,
         cron_service: "CronService | None" = None,
         restrict_to_workspace: bool = False,
@@ -69,7 +72,7 @@ class AgentLoop:
         self.temperature = temperature
         self.max_tokens = max_tokens
         self.memory_window = memory_window
-        self.brave_api_key = brave_api_key
+        self.exa_api_key = exa_api_key
         self.exec_config = exec_config or ExecToolConfig()
         self.a2a_config = a2a_config or A2AConfig()
         self.cron_service = cron_service
@@ -86,7 +89,7 @@ class AgentLoop:
             model=self.model,
             temperature=self.temperature,
             max_tokens=self.max_tokens,
-            brave_api_key=brave_api_key,
+            exa_api_key=exa_api_key,
             exec_config=self.exec_config,
             restrict_to_workspace=restrict_to_workspace,
         )
@@ -115,8 +118,14 @@ class AgentLoop:
         ))
         
         # Web tools
-        self.tools.register(WebSearchTool(api_key=self.brave_api_key))
+        self.tools.register(WebSearchTool(api_key=self.exa_api_key))
         self.tools.register(WebFetchTool())
+        self.tools.register(WebClickTool())
+        self.tools.register(WebTypeTool())
+        self.tools.register(WebScreenshotTool())
+        self.tools.register(WebResearchTool(api_key=self.exa_api_key))
+        self.tools.register(WebResearchSubmitTool(api_key=self.exa_api_key))
+        self.tools.register(WebResearchPollTool(api_key=self.exa_api_key))
         
         # Message tool
         message_tool = MessageTool(send_callback=self.bus.publish_outbound)
