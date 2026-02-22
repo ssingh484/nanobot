@@ -47,10 +47,10 @@ exec(command: str, working_dir: str = None) -> str
 ### web_search
 Search the web using the Exa API.
 ```
-web_search(query: str, count: int = 5) -> str
+web_search(query: str, count: int = 5, apiKey: str = None) -> str
 ```
 
-Returns search results with titles, URLs, and text snippets. Requires `tools.web.search.apiKey` (Exa API key) in config, or the `EXA_API_KEY` environment variable.
+Returns search results with titles, URLs, and text snippets. Uses `tools.web.search.apiKey` (Exa API key) from config, or the `EXA_API_KEY` environment variable. Pass `apiKey` to override at call time.
 
 ### web_fetch
 Fetch and extract content from a URL.
@@ -93,7 +93,7 @@ Returns page URL, title, and a base64-encoded PNG image. Use after `web_fetch` t
 ### web_research
 Deep web research using Exa (synchronous — blocks until finished).
 ```
-web_research(instructions: str, model: str = "exa-research-fast") -> str
+web_research(instructions: str, model: str = "exa-research-fast", apiKey: str = None) -> str
 ```
 
 Submits a research task and polls until the result is ready. Best for quick research queries. For longer investigations, use the async pair below.
@@ -103,7 +103,7 @@ Submits a research task and polls until the result is ready. Best for quick rese
 ### web_research_submit
 Submit a research task to Exa without waiting (async submission).
 ```
-web_research_submit(instructions: str, model: str = "exa-research-fast") -> str
+web_research_submit(instructions: str, model: str = "exa-research-fast", apiKey: str = None) -> str
 ```
 
 Returns immediately with a `research_id`. Use `web_research_poll` to check status and retrieve results later.
@@ -111,7 +111,7 @@ Returns immediately with a `research_id`. Use `web_research_poll` to check statu
 ### web_research_poll
 Poll a previously submitted research task by ID.
 ```
-web_research_poll(research_id: str) -> str
+web_research_poll(research_id: str, apiKey: str = None) -> str
 ```
 
 Returns the current status (`pending`, `running`, `completed`, `failed`) and, if completed, the full research output.

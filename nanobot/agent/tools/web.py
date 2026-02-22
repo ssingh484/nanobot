@@ -75,6 +75,10 @@ class WebSearchTool(Tool):
                 "minimum": 1,
                 "maximum": 10,
             },
+            "apiKey": {
+                "type": "string",
+                "description": "Optional Exa API key (overrides configured default)",
+            },
         },
         "required": ["query"],
     }
@@ -84,20 +88,24 @@ class WebSearchTool(Tool):
         self.max_results = max_results
         self._client = None
 
-    def _get_client(self):
+    def _get_client(self, api_key: str | None = None):
+        key = api_key or self.api_key
+        if api_key and api_key != self.api_key:
+            from exa_py import Exa
+            return Exa(api_key=key)
         if self._client is None:
             from exa_py import Exa
-
-            self._client = Exa(api_key=self.api_key)
+            self._client = Exa(api_key=key)
         return self._client
 
-    async def execute(self, query: str, count: int | None = None, **kwargs: Any) -> str:
-        if not self.api_key:
-            return "Error: EXA_API_KEY not configured"
+    async def execute(self, query: str, count: int | None = None, apiKey: str | None = None, **kwargs: Any) -> str:
+        key = apiKey or self.api_key
+        if not key:
+            return "Error: EXA_API_KEY not configured. Pass apiKey parameter or set EXA_API_KEY env var."
 
         try:
             n = min(max(count or self.max_results, 1), 10)
-            client = self._get_client()
+            client = self._get_client(apiKey)
 
             loop = asyncio.get_running_loop()
             results = await loop.run_in_executor(
@@ -435,6 +443,10 @@ class WebResearchTool(Tool):
                 "default": "exa-research-fast",
                 "description": "Research model: fast (quick), standard, or pro (most thorough)",
             },
+            "apiKey": {
+                "type": "string",
+                "description": "Optional Exa API key (overrides configured default)",
+            },
         },
         "required": ["instructions"],
     }
@@ -443,20 +455,25 @@ class WebResearchTool(Tool):
         self.api_key = api_key or os.environ.get("EXA_API_KEY", "")
         self._client = None
 
-    def _get_client(self):
+    def _get_client(self, api_key: str | None = None):
+        key = api_key or self.api_key
+        if api_key and api_key != self.api_key:
+            from exa_py import Exa
+            return Exa(api_key=key)
         if self._client is None:
             from exa_py import Exa
-            self._client = Exa(api_key=self.api_key)
+            self._client = Exa(api_key=key)
         return self._client
 
     async def execute(
-        self, instructions: str, model: str = "exa-research-fast", **kwargs: Any
+        self, instructions: str, model: str = "exa-research-fast", apiKey: str | None = None, **kwargs: Any
     ) -> str:
-        if not self.api_key:
-            return "Error: EXA_API_KEY not configured"
+        key = apiKey or self.api_key
+        if not key:
+            return "Error: EXA_API_KEY not configured. Pass apiKey parameter or set EXA_API_KEY env var."
 
         try:
-            client = self._get_client()
+            client = self._get_client(apiKey)
             loop = asyncio.get_running_loop()
 
             # Create the task
@@ -504,6 +521,10 @@ class WebResearchSubmitTool(Tool):
                 "default": "exa-research-fast",
                 "description": "Research model: fast (quick), standard, or pro (most thorough)",
             },
+            "apiKey": {
+                "type": "string",
+                "description": "Optional Exa API key (overrides configured default)",
+            },
         },
         "required": ["instructions"],
     }
@@ -512,20 +533,25 @@ class WebResearchSubmitTool(Tool):
         self.api_key = api_key or os.environ.get("EXA_API_KEY", "")
         self._client = None
 
-    def _get_client(self):
+    def _get_client(self, api_key: str | None = None):
+        key = api_key or self.api_key
+        if api_key and api_key != self.api_key:
+            from exa_py import Exa
+            return Exa(api_key=key)
         if self._client is None:
             from exa_py import Exa
-            self._client = Exa(api_key=self.api_key)
+            self._client = Exa(api_key=key)
         return self._client
 
     async def execute(
-        self, instructions: str, model: str = "exa-research-fast", **kwargs: Any
+        self, instructions: str, model: str = "exa-research-fast", apiKey: str | None = None, **kwargs: Any
     ) -> str:
-        if not self.api_key:
-            return "Error: EXA_API_KEY not configured"
+        key = apiKey or self.api_key
+        if not key:
+            return "Error: EXA_API_KEY not configured. Pass apiKey parameter or set EXA_API_KEY env var."
 
         try:
-            client = self._get_client()
+            client = self._get_client(apiKey)
             loop = asyncio.get_running_loop()
 
             task = await loop.run_in_executor(
@@ -564,6 +590,10 @@ class WebResearchPollTool(Tool):
                 "type": "string",
                 "description": "The research_id returned by web_research_submit",
             },
+            "apiKey": {
+                "type": "string",
+                "description": "Optional Exa API key (overrides configured default)",
+            },
         },
         "required": ["research_id"],
     }
@@ -572,18 +602,23 @@ class WebResearchPollTool(Tool):
         self.api_key = api_key or os.environ.get("EXA_API_KEY", "")
         self._client = None
 
-    def _get_client(self):
+    def _get_client(self, api_key: str | None = None):
+        key = api_key or self.api_key
+        if api_key and api_key != self.api_key:
+            from exa_py import Exa
+            return Exa(api_key=key)
         if self._client is None:
             from exa_py import Exa
-            self._client = Exa(api_key=self.api_key)
+            self._client = Exa(api_key=key)
         return self._client
 
-    async def execute(self, research_id: str, **kwargs: Any) -> str:
-        if not self.api_key:
-            return "Error: EXA_API_KEY not configured"
+    async def execute(self, research_id: str, apiKey: str | None = None, **kwargs: Any) -> str:
+        key = apiKey or self.api_key
+        if not key:
+            return "Error: EXA_API_KEY not configured. Pass apiKey parameter or set EXA_API_KEY env var."
 
         try:
-            client = self._get_client()
+            client = self._get_client(apiKey)
             loop = asyncio.get_running_loop()
 
             result = await loop.run_in_executor(
