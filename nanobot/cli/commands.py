@@ -385,7 +385,10 @@ def gateway(
     # Create heartbeat service
     async def on_heartbeat(prompt: str) -> str:
         """Execute heartbeat through the agent."""
-        return await agent.process_direct(prompt, session_key="heartbeat")
+        return await agent.process_direct(
+            prompt, session_key="heartbeat",
+            channel="heartbeat", chat_id="heartbeat",
+        )
     
     heartbeat = HeartbeatService(
         workspace=config.workspace_path,

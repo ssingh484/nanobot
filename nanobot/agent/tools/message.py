@@ -73,6 +73,9 @@ class MessageTool(Tool):
         channel = channel or self._default_channel
         chat_id = chat_id or self._default_chat_id
         
+        if channel == "heartbeat":
+            return "Message not sent: running in autonomous heartbeat mode. Do not attempt to message the user."
+        
         if not channel or not chat_id:
             return "Error: No target channel/chat specified"
         

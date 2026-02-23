@@ -10,8 +10,12 @@ from loguru import logger
 DEFAULT_HEARTBEAT_INTERVAL_S = 60 * 60
 
 # The prompt sent to agent during heartbeat
-HEARTBEAT_PROMPT = """Read HEARTBEAT.md in your workspace (if it exists).
-Follow any instructions or tasks listed there.
+HEARTBEAT_PROMPT = """[HEARTBEAT - AUTONOMOUS MODE]
+You have been activated by the heartbeat scheduler, not by a user.
+Do NOT use the 'message' tool to communicate with any user.
+Do NOT send messages to any channel or chat.
+Work autonomously: read HEARTBEAT.md in your workspace (if it exists),
+follow any instructions or tasks listed there, and complete them silently.
 If nothing needs attention, reply with just: HEARTBEAT_OK"""
 
 # Token that indicates "nothing to do"
